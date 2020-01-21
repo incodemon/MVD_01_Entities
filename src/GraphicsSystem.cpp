@@ -2,6 +2,7 @@
 #include "Game.h"
 #include "extern.h"
 
+
 //destructor
 GraphicsSystem::~GraphicsSystem() {
 	//delete shader pointers
@@ -16,7 +17,13 @@ void GraphicsSystem::init() {
 	//TODO: 
 	// - initialise state of openGL
 	// - create camera variable in .h and initialise camera here
-
+	cam_position_ = lm::vec3(0.0f, 0.0f, 3.0f);
+	lm::vec3 cam_target(0.0f, 0.0f, 0.0f);
+	lm::vec3 cam_up(0.0f, 1.0f, 0.0f);
+	lm::mat4 view_matrix, projection_matrix;
+	view_matrix.lookAt(cam_position_, cam_target, cam_up);
+	projection_matrix.perspective(60.0f * DEG2RAD, 1, 0.01f, 100.0f);
+	view_projection_ = projection_matrix * view_matrix;
 
 }
 
@@ -28,10 +35,74 @@ void GraphicsSystem::update(float dt) {
 	// render all mesh components in ECS
 	// basic - keep rendering code here
 	// advanced: abstract code to renderMeshComponent function below
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	int temp_program = shaders_["phong"]->program;
+	glUseProgram(temp_program);
+
+	//glUseProgram(shaders_["phong"]->program);
+
+	auto& all_meshes = ECS.getAllComponents<Mesh>();
+	
+	//this code to move to GraphicsSystem.init() and be called ONCE
+	
+	
+	
+
+	
+
+	//to here
+	for(auto& mesh : all_meshes){
+		auto& all_trasnforms = ECS.getAllComponents<Transform>();
+		//model matrix
+		lm::mat4 model_matrix =
+			ECS.getComponentFromEntity<Transform>(mesh.owner).getGlobalMatrix(all_trasnforms);
+		
+
+
+		//normal matrix
+		lm::mat4 normal_matrix = model_matrix;
+		normal_matrix.inverse();
+		normal_matrix.transpose();
+
+		//Model view projection matrix
+		lm::mat4 mvp_matrix = view_projection_ * model_matrix;
+
+		//ask shader for a reference to the uniforms 
+		GLint u_mvp = glGetUniformLocation(temp_program, "u_mvp");
+		GLint u_model = glGetUniformLocation(temp_program, "u_model");
+		GLint u_normal_matrix = glGetUniformLocation(temp_program, "u_normal_matrix");
+		GLint u_light_pos = glGetUniformLocation(temp_program, "u_light_pos");
+		GLint u_cam_pos = glGetUniformLocation(temp_program, "u_cam_pos");
+		GLint u_texture_diffuse = glGetUniformLocation(temp_program, "u_texture_diffuse");
+		GLint u_glossiness = glGetUniformLocation(temp_program, "u_glossiness");
+
+		//if the uniforms exist, send the data to the shader
+		if (u_mvp != -1) glUniformMatrix4fv(u_mvp, 1, GL_FALSE, mvp_matrix.m);
+		if (u_model != -1) glUniformMatrix4fv(u_model, 1, GL_FALSE, model_matrix.m);
+		if (u_normal_matrix != -1) glUniformMatrix4fv(u_normal_matrix, 1, GL_FALSE, normal_matrix.m);
+		if (u_light_pos != -1) glUniform3f(u_light_pos, 1000.0f, 0.0f, 1000.0f); //... 3f - is 3 floats
+		if (u_cam_pos != -1) glUniform3fv(u_cam_pos, 1, cam_position_.value_); // ...3fv - is array of 3 floats
+		if (u_texture_diffuse != -1) glUniform1i(u_texture_diffuse, 0); // ...1i - is integer
+		if (u_glossiness != -1) glUniform1f(u_glossiness, 80.0f); //...1f - for float
+
+		//activate texture unit 0, and bind our texture there
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, temp_texture);
+
+		//tell OpenGL we want to the the vao_ container with our buffers
+		glBindVertexArray(mesh.vao);
+
+		//draw our geometry
+		glDrawElements(GL_TRIANGLES, mesh.num_tris * 3, GL_UNSIGNED_INT, 0);
+
+		//tell OpenGL we don't want to use our container anymore
+		glBindVertexArray(0);
 
 
 
+	}
 
+	glUseProgram(0);
 }
 
 //renders a given mesh component

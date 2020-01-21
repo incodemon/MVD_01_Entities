@@ -40,6 +40,8 @@ struct Transform : public Component, public lm::mat4 {
 struct Mesh : public Component {
     //TODO:
 	// - add variables that Mesh Component needs 
+	GLuint vao;
+	GLuint num_tris;
 
 };
 

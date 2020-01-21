@@ -28,7 +28,8 @@ public:
 private:
 	//dictionary of shaders
 	std::unordered_map<std::string, Shader*> shaders_;
-
+	lm::mat4 view_projection_;
+	lm::vec3 cam_position_;
 	//render a single mesh component
 	void renderMeshComponent_(Mesh& comp);
 };
